@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Motor Monitoring & Control Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --glass-bg: rgba(255, 255, 255, 0.75);
+      --glass-border: rgba(255, 255, 255, 0.9);
+      --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --accent-cyan: #0284c7;
+      --accent-amber: #d97706;
+      --accent-red: #dc2626;
+      --accent-violet: #7c3aed;
+      --accent-emerald: #059669;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background-color: #f1f5f9;
+      background-image:
+        radial-gradient(at 0% 0%, rgba(203, 213, 225, 0.8) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(226, 232, 240, 0.9) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(203, 213, 225, 0.8) 0px, transparent 50%),
+        radial-gradient(at 0% 100%, rgba(148, 163, 184, 0.5) 0px, transparent 50%);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Abstract Floating Orbs */
+    .bg-orbs {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.5;
+      animation: float 18s infinite ease-in-out;
+    }
+    .orb-1 { width: 450px; height: 450px; background: radial-gradient(circle, #cbd5e1, transparent); top: -10%; left: -5%; }
+    .orb-2 { width: 350px; height: 350px; background: radial-gradient(circle, #bae6fd, transparent); bottom: 0%; right: -5%; animation-delay: -6s; }
+    .orb-3 { width: 500px; height: 500px; background: radial-gradient(circle, #ddd6fe, transparent); top: 40%; left: 40%; animation-delay: -12s; }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(40px, -20px) scale(1.05); }
+      66% { transform: translate(-20px, 30px) scale(0.95); }
+    }
+
+    .container { position: relative; z-index: 1; }
+
+    /* Liquid Glass System */
+    .glass {
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px) saturate(190%);
+      -webkit-backdrop-filter: blur(20px) saturate(190%);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      box-shadow: var(--glass-shadow), inset 0 1px 2px rgba(255, 255, 255, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ===== HEADER ===== */
+    .dashboard-header {
+      padding: 24px 32px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .dashboard-title {
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: 2rem;
+      color: #0f172a;
+      margin: 0;
+      letter-spacing: -0.5px;
+    }
+    .dashboard-subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-top: 4px;
+      font-weight: 600;
+    }
+    .header-icon {
+      font-size: 1.8rem;
+      color: #0f172a;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px solid #ffffff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    /* Connection Status Badge */
+    .conn-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 22px;
+      border-radius: 30px;
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+      letter-spacing: 1px;
+      border: 2px solid;
+    }
+    .conn-online { background: #dcfce7; border-color: #16a34a; color: #14532d; }
+    .conn-offline { background: #fee2e2; border-color: #dc2626; color: #7f1d1d; }
+    .conn-connecting { background: #fef3c7; border-color: #d97706; color: #78350f; }
+    .conn-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 10px currentColor;
+      animation: blink 1.2s infinite;
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+    /* ===== OVERVIEW BANNER ===== */
+    .status-banner {
+      padding: 20px 28px;
+      margin-bottom: 20px;
+      background: #ffffff;
+      border-left: 6px solid #0284c7;
+    }
+    .status-item-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .status-item-value {
+      font-family: 'Sora', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    /* AI Status Mini Pill inside Banner */
+    .ai-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 0.8rem;
+      border: 1.5px solid;
+      margin-top: 2px;
+    }
+    .ai-pill-normal { background: #dcfce7; border-color: #16a34a; color: #14532d; }
+    .ai-pill-anomaly { background: #fee2e2; border-color: #dc2626; color: #7f1d1d; }
+
+    /* ===== SAFETY ALERT ===== */
+    .safety-alert {
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: #fef2f2;
+      border: 2px solid #ef4444;
+      border-radius: 20px;
+    }
+    .safety-icon {
+      font-size: 1.6rem;
+      color: #ffffff;
+      background: #dc2626;
+      width: 48px; height: 48px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 12px;
+      animation: shake 0.5s infinite;
+    }
+    @keyframes shake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+    .safety-title { font-family: 'Sora', sans-serif; font-weight: 800; color: #991b1b; margin: 0; }
+    .safety-reason { color: #b91c1c; font-size: 0.95rem; font-weight: 600; margin: 0; }
+
+    /* ===== CONTROL PANEL ===== */
+    .control-panel { padding: 28px; margin-bottom: 20px; }
+    .panel-title {
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: 1.15rem;
+      color: #0f172a;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .panel-title i { background: #e2e8f0; padding: 10px; border-radius: 10px; color: #1e293b; }
+
+    .motor-state {
+      text-align: center;
+      padding: 18px;
+      background: #ffffff;
+      border-radius: 18px;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+    }
+    .motor-state-label {
+      font-size: 0.8rem;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+    .motor-state-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 30px;
+      border-radius: 30px;
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: 1.1rem;
+      letter-spacing: 1px;
+      border: 2px solid;
+    }
+    .state-running { background: #dcfce7; border-color: #16a34a; color: #14532d; }
+    .state-stopped { background: #f1f5f9; border-color: #64748b; color: #1e293b; }
+    .state-safety { background: #fee2e2; border-color: #dc2626; color: #7f1d1d; animation: dangerPulse 1.2s infinite; }
+    @keyframes dangerPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+      50% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+    }
+    .state-dot { width: 12px; height: 12px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+
+    /* Command Buttons */
+    .btn-cmd {
+      flex: 1;
+      min-width: 150px;
+      padding: 16px 24px;
+      border-radius: 16px;
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      border: 2px solid;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .btn-start { background: #10b981; border-color: #059669; color: #ffffff; }
+    .btn-start:hover { background: #059669; box-shadow: 0 6px 18px rgba(16, 185, 129, 0.3); transform: translateY(-2px); }
+    
+    .btn-stop { background: #ef4444; border-color: #dc2626; color: #ffffff; }
+    .btn-stop:hover { background: #dc2626; box-shadow: 0 6px 18px rgba(239, 68, 68, 0.3); transform: translateY(-2px); }
+
+    .btn-reset { background: #64748b; border-color: #475569; color: #ffffff; }
+    .btn-reset:hover { background: #475569; box-shadow: 0 6px 18px rgba(100, 116, 139, 0.3); transform: translateY(-2px); }
+
+    /* ===== TELEMETRY CARDS & STATUS TAGS ===== */
+    .metric-card {
+      padding: 24px;
+      height: 100%;
+      text-align: center;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .metric-icon {
+      width: 52px; height: 52px;
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem;
+      margin: 0 auto 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+    .metric-label {
+      font-size: 0.85rem;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    .gauge-container {
+      position: relative;
+      width: 135px;
+      height: 135px;
+      margin: 0 auto 10px;
+    }
+    .gauge-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .gauge-bg { fill: none; stroke: #e2e8f0; stroke-width: 12; }
+    .gauge-progress {
+      fill: none;
+      stroke-width: 12;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.5s ease;
+    }
+    .gauge-value { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    .metric-value {
+      font-family: 'Sora', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 800;
+      line-height: 1;
+      color: #0f172a;
+    }
+    .metric-unit { font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-top: 4px; }
+
+    /* Status Diagnostic Badge under Gauge */
+    .metric-diag-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      margin-top: 6px;
+      border: 1px solid transparent;
+    }
+    .diag-ok { background: #dcfce7; color: #15803d; border-color: #86efac; }
+    .diag-warn { background: #fef3c7; color: #b45309; border-color: #fde047; }
+    .diag-err { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+
+    /* Color Variants */
+    [data-color="cyan"] .metric-icon { color: var(--accent-cyan); }
+    [data-color="cyan"] .gauge-progress { stroke: var(--accent-cyan); }
+
+    [data-color="amber"] .metric-icon { color: var(--accent-amber); }
+    [data-color="amber"] .gauge-progress { stroke: var(--accent-amber); }
+
+    [data-color="red"] .metric-icon { color: var(--accent-red); }
+    [data-color="red"] .gauge-progress { stroke: var(--accent-red); }
+
+    [data-color="violet"] .metric-icon { color: var(--accent-violet); }
+    [data-color="violet"] .gauge-progress { stroke: var(--accent-violet); }
+
+    /* ===== WAVEFORM CARD ===== */
+    .waveform-card { padding: 28px; margin-top: 20px; background: #ffffff; }
+    #waveCanvas {
+      width: 100%;
+      height: 160px;
+      display: block;
+      border-radius: 14px;
+      background: #0f172a;
+    }
+
+    /* ===== INCIDENT HISTORY SECTION ===== */
+    .history-card { padding: 28px; margin-top: 20px; background: #ffffff; }
+    .table-custom {
+      margin-bottom: 0;
+      font-size: 0.9rem;
+    }
+    .table-custom th {
+      background: #f8fafc;
+      color: var(--text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      border-bottom: 2px solid #e2e8f0;
+      padding: 12px 16px;
+    }
+    .table-custom td {
+      padding: 14px 16px;
+      vertical-align: middle;
+      border-bottom: 1px solid #f1f5f9;
+      color: #1e293b;
+      font-weight: 600;
+    }
+    
+    /* Incident Badges Dynamic Styles */
+    .badge-trip {
+      background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;
+      padding: 4px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 700;
+    }
+    .badge-danger {
+      background: #dc2626; color: #ffffff; border: 1px solid #991b1b;
+      padding: 4px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 700;
+    }
+    .badge-ai {
+      background: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe;
+      padding: 4px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 700;
+    }
+
+    /* ===== FOOTER ===== */
+    .dashboard-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 20px 28px;
+      margin-top: 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      background: #ffffff;
+    }
+    .footer-item { display: flex; align-items: center; gap: 8px; color: var(--text-muted); }
+    .footer-item i { color: #0f172a; }
+    .footer-item span { color: #0f172a; font-family: 'Sora', sans-serif; font-weight: 700; }
+
+    /* Toast Notification */
+    .toast-container { position: fixed; top: 24px; right: 24px; z-index: 9999; pointer-events: none; }
+    .toast-msg {
+      background: #ffffff;
+      border: 2px solid #cbd5e1;
+      border-left: 6px solid #0f172a;
+      padding: 16px 20px;
+      border-radius: 14px;
+      margin-bottom: 10px;
+      color: var(--text-main);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      animation: slideIn 0.3s ease, slideOut 0.3s ease 2.7s forwards;
+      min-width: 300px;
+      display: flex; align-items: center; gap: 12px;
+      font-weight: 600;
+    }
+    .toast-msg.success { border-left-color: var(--accent-emerald); }
+    .toast-msg.success i { color: var(--accent-emerald); }
+    .toast-msg.error { border-left-color: var(--accent-red); }
+    .toast-msg.error i { color: var(--accent-red); }
+    .toast-msg i { font-size: 1.3rem; }
+    @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes slideOut { to { transform: translateX(120%); opacity: 0; } }
+
+    @media (max-width: 768px) {
+      .dashboard-title { font-size: 1.5rem; }
+      .btn-cmd { min-width: 100%; }
+    }
+  </style>
+</head>
+<body class="py-4">
+
+<!-- Background Orbs -->
+<div class="bg-orbs">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<div class="container">
+  <!-- Header -->
+  <div class="dashboard-header glass">
+    <div class="d-flex align-items-center gap-3">
+      <i class="fa-solid fa-gauge-high header-icon"></i>
+      <div>
+        <h1 class="dashboard-title">Motor Control System</h1>
+        <p class="dashboard-subtitle">Industrial Realtime Monitoring • Firebase Connected</p>
+      </div>
+    </div>
+    <div id="connStatus" class="conn-badge conn-connecting">
+      <span class="conn-dot"></span>
+      <span id="connText">CONNECTING</span>
+    </div>
+  </div>
+
+  <!-- Current Status Dashboard -->
+  <div class="status-banner glass">
+    <div class="row text-center text-md-start g-3 align-items-center">
+      <div class="col-6 col-md-3">
+        <div class="status-item-title"><i class="fa-solid fa-power-off me-1"></i> สถานะการทำงาน</div>
+        <div class="status-item-value" id="summaryStatus">STANDBY</div>
+      </div>
+      
+      <!-- AI HEALTH PREDICTION -->
+      <div class="col-6 col-md-3">
+        <div class="status-item-title"><i class="fa-solid fa-brain me-1"></i> AI HEALTH PREDICTION</div>
+        <div>
+          <div id="summaryAiPill" class="ai-pill ai-pill-normal">
+            <span class="conn-dot"></span>
+            <span id="summaryAiText">NORMAL</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-3">
+        <div class="status-item-title"><i class="fa-solid fa-shield-halved me-1"></i> ระบบความปลอดภัย</div>
+        <div class="status-item-value" id="summarySafety">NORMAL</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="status-item-title"><i class="fa-solid fa-rotate-right me-1"></i> ปริมาณพัลส์สะสม</div>
+        <div class="status-item-value" id="summaryPulses">0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Safety Alert -->
+  <div id="safetyAlert" class="safety-alert d-none">
+    <i class="fa-solid fa-triangle-exclamation safety-icon"></i>
+    <div>
+      <h5 class="safety-title">SAFETY TRIP ACTIVATED</h5>
+      <p class="safety-reason" id="safetyReasonText">เหตุผล: ไม่ทราบสาเหตุ</p>
+    </div>
+  </div>
+
+  <!-- Control Panel -->
+  <div class="control-panel glass">
+    <h5 class="panel-title">
+      <i class="fa-solid fa-sliders"></i>CONTROL PANEL
+    </h5>
+    <div class="row align-items-center g-3">
+      <div class="col-lg-4">
+        <div class="motor-state">
+          <div class="motor-state-label">STATE</div>
+          <div id="motorStateBadge" class="motor-state-badge state-stopped">
+            <span class="state-dot"></span>
+            <span id="motorStateText">STOPPED</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-8">
+        <div class="d-flex flex-wrap gap-3">
+          <button class="btn-cmd btn-start" onclick="sendCommand('ON')">
+            <i class="fa-solid fa-play"></i>START
+          </button>
+          <button class="btn-cmd btn-stop" onclick="sendCommand('OFF')">
+            <i class="fa-solid fa-stop"></i>STOP
+          </button>
+          <button class="btn-cmd btn-reset" onclick="sendCommand('RESET')">
+            <i class="fa-solid fa-rotate-left"></i>RESET SAFETY
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Telemetry Cards with Diagnostics -->
+  <div class="row g-3">
+    <!-- RPM -->
+    <div class="col-md-6 col-lg-3">
+      <div class="metric-card glass" data-color="cyan">
+        <div>
+          <div class="metric-icon"><i class="fa-solid fa-rotate"></i></div>
+          <div class="metric-label">RPM</div>
+          <div class="gauge-container">
+            <svg class="gauge-svg" viewBox="0 0 120 120">
+              <circle class="gauge-bg" cx="60" cy="60" r="50"></circle>
+              <circle id="gaugeRpm" class="gauge-progress" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"></circle>
+            </svg>
+            <div class="gauge-value">
+              <div class="metric-value" id="valRpm">0</div>
+              <div class="metric-unit">RPM</div>
+            </div>
+          </div>
+        </div>
+        <div id="diagRpm" class="metric-diag-badge diag-ok">
+          <i class="fa-solid fa-circle-check"></i> <span>ปกติ</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Current -->
+    <div class="col-md-6 col-lg-3">
+      <div class="metric-card glass" data-color="amber">
+        <div>
+          <div class="metric-icon"><i class="fa-solid fa-bolt"></i></div>
+          <div class="metric-label">CURRENT</div>
+          <div class="gauge-container">
+            <svg class="gauge-svg" viewBox="0 0 120 120">
+              <circle class="gauge-bg" cx="60" cy="60" r="50"></circle>
+              <circle id="gaugeCurrent" class="gauge-progress" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"></circle>
+            </svg>
+            <div class="gauge-value">
+              <div class="metric-value" id="valCurrent">0.00</div>
+              <div class="metric-unit">AMPERE</div>
+            </div>
+          </div>
+        </div>
+        <div id="diagCurrent" class="metric-diag-badge diag-ok">
+          <i class="fa-solid fa-circle-check"></i> <span>ปกติ</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Temperature -->
+    <div class="col-md-6 col-lg-3">
+      <div class="metric-card glass" data-color="red">
+        <div>
+          <div class="metric-icon"><i class="fa-solid fa-temperature-high"></i></div>
+          <div class="metric-label">TEMPERATURE</div>
+          <div class="gauge-container">
+            <svg class="gauge-svg" viewBox="0 0 120 120">
+              <circle class="gauge-bg" cx="60" cy="60" r="50"></circle>
+              <circle id="gaugeTemp" class="gauge-progress" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"></circle>
+            </svg>
+            <div class="gauge-value">
+              <div class="metric-value" id="valTemp">--</div>
+              <div class="metric-unit">CELSIUS</div>
+            </div>
+          </div>
+        </div>
+        <div id="diagTemp" class="metric-diag-badge diag-ok">
+          <i class="fa-solid fa-circle-check"></i> <span>ปกติ</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vibration -->
+    <div class="col-md-6 col-lg-3">
+      <div class="metric-card glass" data-color="violet">
+        <div>
+          <div class="metric-icon"><i class="fa-solid fa-wave-square"></i></div>
+          <div class="metric-label">VIBRATION</div>
+          <div class="gauge-container">
+            <svg class="gauge-svg" viewBox="0 0 120 120">
+              <circle class="gauge-bg" cx="60" cy="60" r="50"></circle>
+              <circle id="gaugeVib" class="gauge-progress" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"></circle>
+            </svg>
+            <div class="gauge-value">
+              <div class="metric-value" id="valVib">--</div>
+              <div class="metric-unit">m/s²</div>
+            </div>
+          </div>
+        </div>
+        <div id="diagVib" class="metric-diag-badge diag-ok">
+          <i class="fa-solid fa-circle-check"></i> <span>ปกติ</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Waveform -->
+  <div class="waveform-card glass">
+    <h5 class="panel-title">
+      <i class="fa-solid fa-chart-line"></i>LIVE TELEMETRY WAVEFORM
+    </h5>
+    <canvas id="waveCanvas"></canvas>
+  </div>
+
+  <!-- Incident History -->
+  <div class="history-card glass">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="panel-title mb-0">
+        <i class="fa-solid fa-clock-rotate-left"></i>INCIDENT & ALARM HISTORY (CRITICAL ONLY)
+      </h5>
+      <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="clearIncidentHistory()">
+        <i class="fa-solid fa-trash-can me-1"></i> ล้างประวัติ
+      </button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-custom">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>วัน-เวลา ที่เกิดเหตุ</th>
+            <th>ประเภทเหตุการณ์</th>
+            <th>สาเหตุที่บันทึก</th>
+            <th>ค่า RPM</th>
+            <th>กระแส (A)</th>
+          </tr>
+        </thead>
+        <tbody id="incidentHistoryBody">
+          <tr id="emptyHistoryRow">
+            <td colspan="6" class="text-center text-muted py-4">ยังไม่มีประวัติวิกฤต (สีแดง) ในขณะนี้</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="dashboard-footer glass">
+    <div class="footer-item">
+      <i class="fa-solid fa-clock"></i>
+      Last Update: <span id="lastUpdate">--</span>
+    </div>
+    <div class="footer-item">
+      <i class="fa-solid fa-database"></i>
+      Total Pulses: <span id="valTotal">0</span>
+    </div>
+    <div class="footer-item">
+      <i class="fa-solid fa-satellite-dish"></i>
+      Poll Rate: <span>1 Hz</span>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  // ===== Firebase Config =====
+  const FIREBASE_BASE_URL = "https://motor2-a75b1-default-rtdb.firebaseio.com/motor";
+
+  // State Memory variables to track critical triggers
+  let lastTrippedState = false;
+  let lastAiAnomalyState = false;
+  let isRpmCriticalLogged = false;
+  let isVibCriticalLogged = false;
+
+  let currentTelemetry = { rpm: 0, current: 0 };
+  let incidentList = [];
+
+  // ===== Toast Notification =====
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast-msg ${type}`;
+    const icon = type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-circle-xmark' : 'fa-circle-info';
+    toast.innerHTML = `<i class="fa-solid ${icon}"></i><div>${message}</div>`;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  // ===== Gauge Update Helper =====
+  function updateGauge(gaugeId, value, max) {
+    const gauge = document.getElementById(gaugeId);
+    const circumference = 314;
+    const percent = Math.min(Math.max(value / max, 0), 1);
+    const offset = circumference * (1 - percent);
+    gauge.style.strokeDashoffset = offset;
+  }
+
+  // ===== Diagnostic Update Helper =====
+  function updateDiagBadge(elemId, status, message) {
+    const badge = document.getElementById(elemId);
+    if (!badge) return;
+    
+    if (status === 'ok') {
+      badge.className = 'metric-diag-badge diag-ok';
+      badge.innerHTML = `<i class="fa-solid fa-circle-check"></i> <span>${message || 'ปกติ'}</span>`;
+    } else if (status === 'warn') {
+      badge.className = 'metric-diag-badge diag-warn';
+      badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <span>${message}</span>`;
+    } else {
+      badge.className = 'metric-diag-badge diag-err';
+      badge.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> <span>${message}</span>`;
+    }
+  }
+
+  // ===== Waveform Canvas =====
+  const canvas = document.getElementById('waveCanvas');
+  const ctx = canvas.getContext('2d');
+  const waveData = {
+    rpm: new Array(100).fill(0),
+    current: new Array(100).fill(0),
+    temp: new Array(100).fill(0)
+  };
+
+  function resizeCanvas() {
+    canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+    canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  function drawWaveform() {
+    const w = canvas.offsetWidth;
+    const h = canvas.offsetHeight;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 10; i++) {
+      ctx.beginPath();
+      ctx.moveTo(0, (h / 10) * i);
+      ctx.lineTo(w, (h / 10) * i);
+      ctx.stroke();
+    }
+    for (let i = 0; i < 20; i++) {
+      ctx.beginPath();
+      ctx.moveTo((w / 20) * i, 0);
+      ctx.lineTo((w / 20) * i, h);
+      ctx.stroke();
+    }
+
+    const drawLine = (data, color, max) => {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      data.forEach((val, i) => {
+        const x = (i / (data.length - 1)) * w;
+        const y = h - (Math.min(val / max, 1) * h * 0.8) - h * 0.1;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    };
+
+    drawLine(waveData.rpm, '#38bdf8', 2000);
+    drawLine(waveData.current, '#fbbf24', 30);
+    drawLine(waveData.temp, '#f87171', 100);
+  }
+
+  // ===== Record Incident System (CRITICAL ONLY) =====
+  function logIncident(type, reason, rpm, current, badgeStyle = 'badge-danger') {
+    const timeStr = new Date().toLocaleString('th-TH');
+    const incident = {
+      id: incidentList.length + 1,
+      time: timeStr,
+      type: type,
+      reason: reason || 'ไม่ทราบสาเหตุ',
+      rpm: typeof rpm === 'number' ? rpm.toFixed(1) : rpm,
+      current: typeof current === 'number' ? current.toFixed(2) : current,
+      badgeStyle: badgeStyle
+    };
+    incidentList.unshift(incident);
+    renderIncidentHistory();
+  }
+
+  function renderIncidentHistory() {
+    const tbody = document.getElementById('incidentHistoryBody');
+    if (incidentList.length === 0) {
+      tbody.innerHTML = `
+        <tr id="emptyHistoryRow">
+          <td colspan="6" class="text-center text-muted py-4">ยังไม่มีประวัติวิกฤต (สีแดง) ในขณะนี้</td>
+        </tr>`;
+      return;
+    }
+
+    tbody.innerHTML = incidentList.map(item => `
+      <tr>
+        <td>${item.id}</td>
+        <td><i class="fa-regular fa-clock me-1 text-muted"></i>${item.time}</td>
+        <td><span class="${item.badgeStyle}"><i class="fa-solid fa-triangle-exclamation me-1"></i>${item.type}</span></td>
+        <td>${item.reason}</td>
+        <td>${item.rpm} RPM</td>
+        <td>${item.current} A</td>
+      </tr>
+    `).join('');
+  }
+
+  function clearIncidentHistory() {
+    incidentList = [];
+    renderIncidentHistory();
+    showToast('ล้างประวัติเรียบร้อย', 'info');
+  }
+
+  // ===== Fetch Telemetry & Diagnostic Analysis =====
+  async function fetchTelemetry() {
+    try {
+      const res = await fetch(`${FIREBASE_BASE_URL}/current.json`);
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+      const data = await res.json();
+
+      if (data) {
+        const conn = document.getElementById('connStatus');
+        conn.className = 'conn-badge conn-online';
+        document.getElementById('connText').innerText = 'ONLINE';
+
+        const rpm = data.rpm || 0;
+        const current = data.current || 0;
+        const temp = data.temperature;
+        const vib = data.vibration || 0;
+        const isTripped = Boolean(data.safety_tripped);
+        const reason = data.safety_reason || "";
+
+        currentTelemetry.rpm = rpm;
+        currentTelemetry.current = current;
+
+        // -------------------------------------------------------------
+        // 1. Update RPM (บันทึกเฉพาะ RED/CRITICAL)
+        // -------------------------------------------------------------
+        document.getElementById("valRpm").innerText = rpm.toFixed(1);
+        updateGauge('gaugeRpm', rpm, 2000);
+
+        if (rpm > 2200) {
+          updateDiagBadge('diagRpm', 'err', 'รอบสูงเกินวิกฤต');
+          if (!isRpmCriticalLogged) {
+            logIncident("RPM CRITICAL", "ความเร็วรอบสูงวิกฤต (RPM Over Limit Danger)", rpm, current, 'badge-danger');
+            showToast("วิกฤต (แดง): RPM สูงเกินขีดจำกัด", 'error');
+            isRpmCriticalLogged = true;
+          }
+        } else {
+          isRpmCriticalLogged = false; // Reset when back from Red
+          if (rpm > 1800) {
+            updateDiagBadge('diagRpm', 'warn', 'ความเร็วรอบสูงเกิน');
+          } else if (data.motor === "ON" && rpm < 50) {
+            updateDiagBadge('diagRpm', 'warn', 'รอบตก/มอเตอร์ติดขัด');
+          } else {
+            updateDiagBadge('diagRpm', 'ok', 'ปกติ');
+          }
+        }
+
+        // -------------------------------------------------------------
+        // 2. Update Current
+        // -------------------------------------------------------------
+        document.getElementById("valCurrent").innerText = current.toFixed(2);
+        updateGauge('gaugeCurrent', current, 30);
+
+        if (current < 0) {
+          updateDiagBadge('diagCurrent', 'err', 'ค่าติดลบ (เช็กสายเซนเซอร์)');
+        } else if (current > 20) {
+          updateDiagBadge('diagCurrent', 'err', 'กระแสเกิน (Overcurrent)');
+        } else {
+          updateDiagBadge('diagCurrent', 'ok', 'ปกติ');
+        }
+
+        // -------------------------------------------------------------
+        // 3. Update Temperature
+        // -------------------------------------------------------------
+        document.getElementById("valTemp").innerText = (temp !== null && temp !== undefined && temp !== -127) ? temp.toFixed(1) : "--";
+        updateGauge('gaugeTemp', temp || 0, 100);
+
+        if (reason.includes("TEMP_SENSOR_LOST") || temp === null || temp === undefined || temp === -127) {
+          updateDiagBadge('diagTemp', 'err', 'สายหลุด/เซนเซอร์เสีย');
+        } else if (temp > 85) {
+          updateDiagBadge('diagTemp', 'err', 'ความร้อนสูงเกินวิกฤต');
+        } else if (temp > 65) {
+          updateDiagBadge('diagTemp', 'warn', 'อุณหภูมิเริ่มสูง');
+        } else {
+          updateDiagBadge('diagTemp', 'ok', 'ปกติ');
+        }
+
+        // -------------------------------------------------------------
+        // 4. Update Vibration (บันทึกเฉพาะ RED/CRITICAL)
+        // -------------------------------------------------------------
+        document.getElementById("valVib").innerText = (vib !== null && vib !== undefined) ? vib.toFixed(2) : "--";
+        updateGauge('gaugeVib', vib, 20);
+
+        if (vib > 15) {
+          updateDiagBadge('diagVib', 'err', 'สั่นสะเทือนรุนแรง');
+          if (!isVibCriticalLogged) {
+            logIncident("VIB CRITICAL", "การสั่นสะเทือนสูงระดับวิกฤต (Severe Vibration)", rpm, current, 'badge-danger');
+            showToast("วิกฤต (แดง): แรงสั่นสะเทือนสูงรุนแรง", 'error');
+            isVibCriticalLogged = true;
+          }
+        } else {
+          isVibCriticalLogged = false; // Reset when back from Red
+          if (vib > 8) {
+            updateDiagBadge('diagVib', 'warn', 'เริ่มสั่นผิดปกติ');
+          } else {
+            updateDiagBadge('diagVib', 'ok', 'ปกติ');
+          }
+        }
+
+        // Total Pulses
+        const totalPulses = (data.total || 0).toLocaleString();
+        document.getElementById("valTotal").innerText = totalPulses;
+        document.getElementById("summaryPulses").innerText = totalPulses;
+
+        // Overall Motor Status & Safety Trip Check
+        const badge = document.getElementById("motorStateBadge");
+        const stateText = document.getElementById("motorStateText");
+        const summaryStatus = document.getElementById("summaryStatus");
+        const summarySafety = document.getElementById("summarySafety");
+
+        // SAFETY TRIP CRITICAL EVENT
+        if (isTripped && !lastTrippedState) {
+          logIncident("SAFETY TRIP", reason || 'Safety Trip ทำงาน', rpm, current, 'badge-trip');
+          showToast(`วิกฤต: ${reason || 'Safety Trip'}`, 'error');
+        }
+        lastTrippedState = isTripped;
+
+        if (isTripped) {
+          badge.className = "motor-state-badge state-safety";
+          stateText.innerText = "SAFETY TRIP";
+          summaryStatus.innerText = "TRIPPED";
+          summaryStatus.style.color = "#dc2626";
+          summarySafety.innerText = "TRIPPED!";
+          summarySafety.style.color = "#dc2626";
+        } else if (data.motor === "ON") {
+          badge.className = "motor-state-badge state-running";
+          stateText.innerText = "RUNNING";
+          summaryStatus.innerText = "RUNNING";
+          summaryStatus.style.color = "#16a34a";
+          summarySafety.innerText = "NORMAL";
+          summarySafety.style.color = "#16a34a";
+        } else {
+          badge.className = "motor-state-badge state-stopped";
+          stateText.innerText = "STOPPED";
+          summaryStatus.innerText = "STOPPED";
+          summaryStatus.style.color = "#475569";
+          summarySafety.innerText = "NORMAL";
+          summarySafety.style.color = "#16a34a";
+        }
+
+        const alertBox = document.getElementById("safetyAlert");
+        if (isTripped) {
+          alertBox.classList.remove("d-none");
+          document.getElementById("safetyReasonText").innerText = "เหตุผล: " + (reason || "Trip ไม่ทราบสาเหตุ");
+        } else {
+          alertBox.classList.add("d-none");
+        }
+
+        waveData.rpm.shift(); waveData.rpm.push(rpm);
+        waveData.current.shift(); waveData.current.push(current);
+        waveData.temp.shift(); waveData.temp.push(temp || 0);
+        drawWaveform();
+
+        document.getElementById("lastUpdate").innerText = new Date().toLocaleTimeString('th-TH');
+      }
+    } catch (err) {
+      console.error("Fetch error:", err);
+      const conn = document.getElementById('connStatus');
+      conn.className = 'conn-badge conn-offline';
+      document.getElementById('connText').innerText = 'OFFLINE';
+    }
+  }
+
+  // ===== Send Command =====
+  async function sendCommand(cmd) {
+    const btnMap = { 'ON': '.btn-start', 'OFF': '.btn-stop', 'RESET': '.btn-reset' };
+    const btn = document.querySelector(btnMap[cmd]);
+    if (btn) {
+      btn.style.opacity = '0.6';
+      btn.style.pointerEvents = 'none';
+    }
+    try {
+      const res = await fetch(`${FIREBASE_BASE_URL}/command.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cmd)
+      });
+      if (res.ok) {
+        showToast(`ส่งคำสั่ง "${cmd}" สำเร็จ`, 'success');
+        setTimeout(fetchTelemetry, 300);
+      } else {
+        showToast(`ส่งคำสั่งไม่สำเร็จ (HTTP ${res.status})`, 'error');
+      }
+    } catch (err) {
+      showToast("เกิดข้อผิดพลาดในการเชื่อมต่อ: " + err.message, 'error');
+    } finally {
+      if (btn) {
+        setTimeout(() => {
+          btn.style.opacity = '1';
+          btn.style.pointerEvents = 'auto';
+        }, 800);
+      }
+    }
+  }
+
+  // ===== AI PREDICTION FETCH =====
+  async function fetchAIPrediction() {
+    try {
+      const res = await fetch(`${FIREBASE_BASE_URL}/prediction.json`);
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+      const data = await res.json();
+      if (!data) return;
+
+      const aiPill = document.getElementById('summaryAiPill');
+      const aiText = document.getElementById('summaryAiText');
+
+      const isAnomaly = (data.status === 'anomaly');
+
+      if (isAnomaly) {
+        aiPill.className = 'ai-pill ai-pill-anomaly';
+        aiText.innerText = 'ANOMALY';
+      } else {
+        aiPill.className = 'ai-pill ai-pill-normal';
+        aiText.innerText = 'NORMAL';
+      }
+
+      // AI Anomaly Red Event Trigger
+      if (isAnomaly && !lastAiAnomalyState) {
+        const aiReason = data.message || "ระบบ AI ตรวจพบความผิดปกติของมอเตอร์ (Anomaly Detected)";
+        logIncident("AI ANOMALY", aiReason, currentTelemetry.rpm, currentTelemetry.current, 'badge-ai');
+        showToast(`AI Critical Warning: ${aiReason}`, 'error');
+      }
+      lastAiAnomalyState = isAnomaly;
+
+    } catch (err) {
+      console.error("AI prediction fetch error:", err);
+    }
+  }
+
+  // ===== Loop Timers =====
+  setInterval(fetchAIPrediction, 2000);
+  setInterval(drawWaveform, 100);
+  setInterval(fetchTelemetry, 1000);
+
+  // Initial Execution
+  fetchAIPrediction();
+  fetchTelemetry();
+  showToast('ระบบเชื่อมต่อสำเร็จ', 'success');
+</script>
+
+</body>
+</html>
